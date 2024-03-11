@@ -9,9 +9,10 @@ public class ToolEditor : EditorWindow
     [MenuItem("GIO/ToolEditor")]
     public static void OpenWindow() => GetWindow<ToolEditor>();
 
-    public float gridSize = 1f;
+    public float rotate;
 
     private GameObject stanzaSelezionata;
+    private GameObject snapTargetObject; // Nuova variabile per l'oggetto di destinazione dello snap
 
     SerializedObject so;
     GameObject[] Stanze;
@@ -20,6 +21,7 @@ public class ToolEditor : EditorWindow
 
     private void OnEnable()
     {
+        rotate = 0;
         so = new SerializedObject(this);
         SceneView.duringSceneGui += OnSceneGUI;
         string[] guids = AssetDatabase.FindAssets("t:prefab", new[] { "Assets/Prefab" });
@@ -34,6 +36,7 @@ public class ToolEditor : EditorWindow
 
     private void OnDisable()
     {
+        
         SceneView.duringSceneGui -= OnSceneGUI;
     }
 
@@ -49,7 +52,6 @@ public class ToolEditor : EditorWindow
         if (Event.current.type == EventType.Repaint)
         {
             DrawPrefabOnCursor(stanzaSelezionata, sceneView);
-
         }
     }
 
@@ -60,16 +62,25 @@ public class ToolEditor : EditorWindow
         {
             if (e.keyCode == KeyCode.Q)
             {
-                RotatePrefab(-90f); // Ruota di -90° quando premi Ctrl+Q
+                rotate -= 90;
+                Debug.Log(rotate);
+                RotatePrefab(-1);
             }
             else if (e.keyCode == KeyCode.E)
             {
-                RotatePrefab(90f); // Ruota di 90° quando premi Ctrl+E
+                rotate += 90;
+                Debug.Log(rotate);
+                RotatePrefab(1);
             }
         }
         else if (e.type == EventType.MouseDown && e.button == 0)
         {
             InstantiatePrefab();
+        }
+
+        if (rotate >= 360 || rotate <= -360)
+        {
+            rotate = 0;
         }
     }
 
@@ -78,19 +89,33 @@ public class ToolEditor : EditorWindow
         if (stanzaSelezionata != null)
         {
             Undo.RecordObject(this, "Istanza prefab");
-
-            // Applica la rotazione al prefab prima di istanziarlo
             RotatePrefab(0f);
 
             GameObject istanzaPrefab = PrefabUtility.InstantiatePrefab(stanzaSelezionata) as GameObject;
+            istanzaPrefab.transform.rotation = Quaternion.Euler(0f, rotate, 0f);
             if (istanzaPrefab != null)
             {
-                Vector3 worldPosition = GetWorldPosition(Event.current.mousePosition);
-                istanzaPrefab.transform.position = worldPosition;
-                Undo.RegisterCreatedObjectUndo(istanzaPrefab, "Istanza prefab");
-                Debug.Log("Prefab istanziato");
+                if (snapTargetObject != null) // Esegui lo snap se c'è un oggetto di destinazione
+                {
+                    SnapObjects(istanzaPrefab);
+                }
+                else
+                {
+                    Vector3 worldPosition = GetWorldPosition(Event.current.mousePosition);
+                    istanzaPrefab.transform.position = worldPosition;
+                    Undo.RegisterCreatedObjectUndo(istanzaPrefab, "Istanza prefab");
+                    Debug.Log("Prefab istanziato");
+                }
             }
         }
+    }
+
+    private void SnapObjects(GameObject obj)
+    {
+        Undo.RecordObject(obj.transform, "Snap Prefab");
+        obj.transform.position = snapTargetObject.transform.position;
+        obj.transform.rotation = snapTargetObject.transform.rotation;
+        Debug.Log("Prefab snapped to target object.");
     }
 
     private void RotatePrefab(float angle)
@@ -157,12 +182,10 @@ public class ToolEditor : EditorWindow
             Ray ray = HandleUtility.GUIPointToWorldRay(Event.current.mousePosition);
             RaycastHit hit;
 
-
-            if (Physics.Raycast(ray,out hit) && hit.collider != null)
+            if (Physics.Raycast(ray, out hit) && hit.collider != null)
             {
-
                 Vector3 cursorPosition = hit.point + hit.normal * 0.5f;
-                Quaternion cursorRotation = Quaternion.identity; /*Quaternion.LookRotation(hit.normal);*/
+                Quaternion cursorRotation = Quaternion.Euler(0f, rotate, 0f); 
                 Matrix4x4 matrix = Matrix4x4.TRS(cursorPosition, cursorRotation, Vector3.one);
                 MeshFilter[] Mf = prefab.GetComponentsInChildren<MeshFilter>();
 
@@ -178,7 +201,6 @@ public class ToolEditor : EditorWindow
 
                     Graphics.DrawMesh(mesh, childToWorldMatrix, mat, 0, sv.camera);
                 }
-
             }
         }
     }
