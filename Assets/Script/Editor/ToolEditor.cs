@@ -46,7 +46,11 @@ public class ToolEditor : EditorWindow
     {
         ButtonPreview();
         HandleInput();
-        DrawPrefabOnCursor(stanzaSelezionata);
+        if (Event.current.type == EventType.Repaint)
+        {
+            DrawPrefabOnCursor(stanzaSelezionata, sceneView);
+
+        }
     }
 
     private void HandleInput()
@@ -146,30 +150,35 @@ public class ToolEditor : EditorWindow
         Handles.EndGUI();
     }
 
-    private void DrawPrefabOnCursor(GameObject prefab)
+    private void DrawPrefabOnCursor(GameObject prefab, SceneView sv)
     {
         if (prefab != null && Event.current.type == EventType.Repaint)
         {
             Ray ray = HandleUtility.GUIPointToWorldRay(Event.current.mousePosition);
             RaycastHit hit;
 
-            if (Physics.Raycast(ray, out hit))
+
+            if (Physics.Raycast(ray,out hit) && hit.collider != null)
             {
-                Vector3 cursorPosition = hit.point;
-                Quaternion cursorRotation = Quaternion.LookRotation(hit.normal);
 
-                GameObject previewObject = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+                Vector3 cursorPosition = hit.point + hit.normal * 0.5f;
+                Quaternion cursorRotation = Quaternion.identity; /*Quaternion.LookRotation(hit.normal);*/
+                Matrix4x4 matrix = Matrix4x4.TRS(cursorPosition, cursorRotation, Vector3.one);
+                MeshFilter[] Mf = prefab.GetComponentsInChildren<MeshFilter>();
 
-                if (previewObject != null)
+                foreach (MeshFilter filter in Mf)
                 {
-                    // Offset per evitare di intersecare il terreno
-                    cursorPosition += hit.normal * 0.5f;
+                    Matrix4x4 childToPoint = filter.transform.localToWorldMatrix;
+                    Matrix4x4 childToWorldMatrix = matrix * childToPoint;
 
-                    previewObject.transform.position = cursorPosition;
-                    previewObject.transform.rotation = cursorRotation;
-                    previewObject.transform.localScale = prefab.transform.localScale;
-                    DestroyImmediate(previewObject);
+                    Mesh mesh = filter.sharedMesh;
+                    Material mat = filter.GetComponent<MeshRenderer>().sharedMaterial;
+
+                    mat.SetPass(0);
+
+                    Graphics.DrawMesh(mesh, childToWorldMatrix, mat, 0, sv.camera);
                 }
+
             }
         }
     }
