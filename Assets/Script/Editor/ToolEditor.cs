@@ -36,13 +36,32 @@ public class ToolEditor : EditorWindow
 
     private void OnDisable()
     {
-        
+
         SceneView.duringSceneGui -= OnSceneGUI;
     }
 
     private void OnGUI()
     {
         so.Update();
+
+        GUILayout.BeginArea(new Rect(10, 10, position.width - 10, 300));
+        EditorGUILayout.HelpBox
+            ("Premi Ctrl+Q per ruotare a sinistra, Ctrl+E per ruotare a destra,Ctrl+Z per fare l'Undo e tasto destro del mouse per spawnare l'oggetto",
+            MessageType.Info);
+        GUILayout.EndArea();
+
+
+        GUILayout.BeginArea(new Rect(10, 10, position.width - 50, 100));
+        GUILayout.Space(50);
+
+        if (GUILayout.Button("Undo"))
+        {
+            Undo.PerformUndo();
+        }
+
+        GUILayout.EndArea();
+
+
     }
 
     private void OnSceneGUI(SceneView sceneView)
@@ -185,7 +204,7 @@ public class ToolEditor : EditorWindow
             if (Physics.Raycast(ray, out hit) && hit.collider != null)
             {
                 Vector3 cursorPosition = hit.point + hit.normal * 0.5f;
-                Quaternion cursorRotation = Quaternion.Euler(0f, rotate, 0f); 
+                Quaternion cursorRotation = Quaternion.Euler(0f, rotate, 0f);
                 Matrix4x4 matrix = Matrix4x4.TRS(cursorPosition, cursorRotation, Vector3.one);
                 MeshFilter[] Mf = prefab.GetComponentsInChildren<MeshFilter>();
 
